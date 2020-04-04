@@ -1,10 +1,10 @@
 ################################################################################
 ## DESCRIPTION: Installation Script.
-## NAME: Get-Install.ps1 
-## AUTHOR: Lucca Pessoa da Silva Matos 
+## NAME: Get-Install.ps1
+## AUTHOR: Lucca Pessoa da Silva Matos
 ## DATE: 04.04.2020
 ## VERSION: 1.1
-## EXEMPLE: 
+## EXEMPLE:
 ##     PS C:\> .\Get-Install.ps1
 ################################################################################
 
@@ -34,7 +34,7 @@ Function Get-Install {
   $PATH = Join-Path C:\ (Split-Path $SETUP_URL -Leaf)
   Log("Install Script...")
   Invoke-WebRequest $SETUP_URL -OutFile $PATH
-}
+}#End Get-Install
 
 # ******************************************************************************
 # MAIN
