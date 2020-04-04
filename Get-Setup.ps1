@@ -1,9 +1,10 @@
 ################################################################################
-## DESCRIPTION: Setup used to configure a GitLab Runner on Windows EC2 - AWS.
+## DESCRIPTION: Setup used to configure a GitLab Runner on Windows EC2 - AWS
+##              with AWS CLI, GIT and others packages.
 ## NAME: Get-Setup.ps1 
 ## AUTHOR: Lucca Pessoa da Silva Matos 
-## DATE: 04.02.2020
-## VERSION: 1.0
+## DATE: 04.04.2020
+## VERSION: 1.1
 ## EXEMPLE: 
 ##     PS C:\> .\Get-Setup.ps1
 ################################################################################
@@ -11,12 +12,18 @@
 [CmdletBinding()]
 Param(
   [Parameter(HelpMessage="AWS EC2 GitLab Runner - Setup CLI commands.")]
-  [ValidateSet("all", "choco", "aws", "list", "update", "help")]
+  [ValidateSet("all", "choco", "aws", "register", "unregister", "runners", "list", "update", "help")]
   [string]$Setup="all"
 )
 
-$AWSAccessKey="replace with your access key" # Replace with your access key
-$AWSSecretKey="replace with your secret key" # Replace with your secret key
+$AWSAccessKey="YourAWSAccessKey" # Replace with your access key
+$AWSSecretKey="YourAWSSecretKey" # Replace with your secret key
+
+$GitLabHost="YourGitLabHost" # Replace with your gitlab host
+$GitLabToken="YourGitLabToken" # Replace with your gitlab token
+
+$RunnerDescription="aws-gitlab-runner-ec2-windows" # Replace with your runner description
+$RunnerTags="windows" # Replace with your runner tags
 
 # ******************************************************************************
 # FUNCTIONS
@@ -25,12 +32,12 @@ $AWSSecretKey="replace with your secret key" # Replace with your secret key
 Function Write-Header {
   Write-Host ""
   Write-Host "========================================" -ForegroundColor Green
-  Write-Host "Setup AWS EC2 Gitlab Runner" -ForegroundColor Green
-  Write-Host "Install Chocolatey, Git, AWS CLI and GitLab Runner" -ForegroundColor Green
-  Write-Host ""
-  Write-Host "Author: Lucca Pessoa" -ForegroundColor Yellow
-  Write-Host "Date: 02-04-2020" -ForegroundColor Yellow
-  Write-Host "Version: 0.1" -ForegroundColor Yellow
+  Write-Host "= Setup AWS EC2 GitLab Runner" -ForegroundColor Green
+  Write-Host "= Chocolatey, Git, AWS CLI and GitLab Runner" -ForegroundColor Green
+  Write-Host "= "
+  Write-Host "= Author: Lucca Pessoa" -ForegroundColor Yellow
+  Write-Host "= Date: 04-04-2020" -ForegroundColor Yellow
+  Write-Host "= Version: 1.1" -ForegroundColor Yellow
   Write-Host "========================================" -ForegroundColor Green
   Write-Host "`n"
 } #End Write-Header
@@ -42,44 +49,46 @@ Function Log($MESSAGE){
 
 Function Get-Admin-Execution {
   # Test-Admin is not available yet, so use...
-  if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+  If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Start-Process powershell -ArgumentList "-noprofile -NoExit -file `"$PSCommandPath`"" -Verb RunAs
     Exit
   }
   # From a Administrator PowerShell, if Get-ExecutionPolicy returns Restricted, run:
-  if ((Get-ExecutionPolicy) -eq "Restricted") {
+  If ((Get-ExecutionPolicy) -eq "Restricted") {
     Set-ExecutionPolicy Unrestricted -Force
   }
 } #End Get-Admin-Execution
 
 Function Get-Choco-Setup {
   $PACKAGES = "gitlab-runner",
-  "curl"
+  "python",
+  "pip"
   Log("Installing packages...")
   foreach ($PACKAGE in $PACKAGES){
     choco install --confirm $PACKAGE
   }
-  Log("Installing Git.")
+  Log("Installing Git...")
   choco install git -params '"/GitAndUnixToolsOnPath"'
 }#End Get-Choco-Setup
 
 Function Get-AWSCLI-Setup {
   # Setting AWS Variables
   If ($AWSAccessKey -and $AWSSecretKey) {
-    Log("AWS credentials have been defined.")
+    Log("AWS credentials have been defined. Setting credentials...")
     aws configure set AWS_ACCESS_KEY_ID $AWSAccessKey
     aws configure set AWS_SECRET_ACCESS_KEY $AWSSecretKey
     aws configure set default.region us-east-1
     try{
+      Log("Configure AWS Profile.");
       aws configure --profile [name]
       aws s3 ls
     } 
     catch{
-      Write-Error "Error in AWS Setup credentials..."
+      Write-Error "Error - Configure AWS Profile..."
     }
   }
   Else {
-    Write-Error "AWS credentials not been defined. Bye Bye :)"
+    Write-Error "Error - AWS credentials not been defined. Bye Bye :)"
     Exit
   }
 } #End Get-AWSCLI-Setup
@@ -87,44 +96,84 @@ Function Get-AWSCLI-Setup {
 Function Get-Choco-Installation {
   $URL_CHOCOLATEY = "https://chocolatey.org/install.ps1"
   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+  Log("Installing Choco...")
   Invoke-Expression ((New-Object System.Net.WebClient).DownloadString($URL_CHOCOLATEY))
 } #End Get-Choco-Installation
 
 Function Get-AWSCLI-Installation {
   $AWSCLI_URL = "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi"
   $PATH = Join-Path C:\ (Split-Path $AWSCLI_URL -Leaf)
+  Log("Installing AWSCLI .msi...")
   Invoke-WebRequest $AWSCLI_URL -OutFile $PATH
 } #End Get-AWSCLI-Installation
 
 Function Test-Choco {
   # Validate Chocolatey Environment and Path.
   try {
-    if ($env:ChocolateyInstall -or (Test-Path "$env:ChocolateyInstall") -or (Get-Command choco.exe -ErrorAction SilentlyContinue)){
+    If ($env:ChocolateyInstall -or (Test-Path "$env:ChocolateyInstall") -or (Get-Command choco.exe -ErrorAction SilentlyContinue)){
       Log("Chocolatey is already installed in the system.")
       Get-Choco-Setup
     }
   }
   catch {
-    Log("Chocolatey ins't in the System... Installing Chocolatey...")
+    Log("Chocolatey ins't in the System...")
     Get-Choco-Installation
     Get-Choco-Setup
   }
 } #End Test-Choco
 
 Function Test-AWSCLI {
-  if (Get-Command aws -ErrorAction SilentlyContinue){
+  If (Get-Command aws -ErrorAction SilentlyContinue){
     Log("AWSCLI is already in the system.")
     Get-AWSCLI-Setup
-  }else{
-    Write-Error "AWSCLI ins't in the System..."
-    if(!(Test-Path "C:\AWSCLI64PY3.msi")){
-      Log("Installing AWSCLI .msi...")
+  }
+  Else {
+    Write-Error "Error - AWSCLI ins't in the System..."
+    If (!(Test-Path "C:\AWSCLI64PY3.msi")){
       Get-AWSCLI-Installation
-    }else{
+    }
+    Else {
       Log("AWSCLI .msi alredy in the system...")
     }
   }
 }#End Test-AWSCLI
+
+Function Get-GitLab-Runner-Install {
+  If (Get-Command gitlab-runner -ErrorAction SilentlyContinue){
+    Log("Setup GitLab Runner - Status...")
+    gitlab-runner status
+    Log("Setup GitLab Runner - Install...")
+    gitlab-runner install
+  }
+  Else {
+    Write-Error "Error - GitLab Runner ins't in the System..."
+  }
+}#End Get-GitLab-Runner-Install
+
+Function Get-GitLab-Runner-Register {
+  Get-GitLab-Runner-Install
+  If ($GitLabHost -and $GitLabToken) {
+    try {
+      Log("Setup GitLab Runner - Register...")
+      gitlab-runner register -n --url $GitLabHost --registration-token $GitLabToken --description $RunnerDescription --tag-list $RunnerTags --executor shell --shell powershell --request-concurrency 15 --run-untagged false
+      Log("Setup GitLab Runner - Status...")
+      gitlab-runner status
+      Log("Setup GitLab Runner - Stop...")
+      gitlab-runner stop
+      Log("Setup GitLab Runner - Start...")
+      gitlab-runner start
+      Log("Setup GitLab Runner - Status...")
+      gitlab-runner status
+    }
+    catch {
+      Write-Error "Error - GitLab Runner Registration"
+    }
+  }
+  Else {
+    Write-Error "Error - GitLab Runner credentials not been defined. Bye Bye :)"
+    Exit
+  }
+}#End Get-GitLab-Runner-Register
 
 # ******************************************************************************
 # MAIN
@@ -142,6 +191,7 @@ switch ($Setup) {
       Log("AWSCLI is already in the system.")
       Get-AWSCLI-Setup
     }
+    Get-GitLab-Runner-Register
   }
 
   choco {
@@ -154,7 +204,29 @@ switch ($Setup) {
       Log("AWSCLI is already in the system.")
       Get-AWSCLI-Setup
     }
-	}
+  }
+  
+  register {
+    Get-GitLab-Runner-Register
+  }
+
+  unregister {
+    If (Get-Command gitlab-runner -ErrorAction SilentlyContinue){
+      gitlab-runner unregister --all-runners
+    }
+    Else {
+      Write-Error "Error - GitLab Runner ins't in the System..."
+    }
+  }
+
+  runners {
+    If (Get-Command gitlab-runner -ErrorAction SilentlyContinue){
+      gitlab-runner list
+    }
+    Else {
+      Write-Error "Error - GitLab Runner ins't in the System..."
+    }
+  }
 	
 	list {
     Log("List all installed packages.")
@@ -167,11 +239,11 @@ switch ($Setup) {
   }
   
   help {
-		Log("usage: all|aws|choco|list|update|help")
+		Log("usage: all|aws|choco|register|unregister|runnnes|list|update|help")
 	}
 	
 	default {
-		Log("usage: aws|list|update")
+		Log("usage: all|aws|choco|register|unregister|runnnes|list|update|help")
   }
   
 }

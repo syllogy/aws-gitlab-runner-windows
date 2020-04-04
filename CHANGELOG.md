@@ -38,3 +38,14 @@ All important changes to this project will be added to this file! This changelog
   * hel
 * Create install script to put Get-Setup.ps1 inside your PC.
 * Try-Catch flow to choco and aws.
+
+## 1.0.1 - [ 04/04/2020 ] 
+
+### Added
+
+* Install Runner by script.
+* Adding new Command in CLI.
+* Fixing Installer Script and create new Functions:
+  * Write-Header()
+  * Log()
+  * Get-Install()
