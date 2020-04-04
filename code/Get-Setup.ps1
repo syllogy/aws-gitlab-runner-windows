@@ -1,18 +1,18 @@
 ################################################################################
 ## DESCRIPTION: Setup used to configure a GitLab Runner on Windows EC2 - AWS
 ##              with AWS CLI, GIT and others packages.
-## NAME: Get-Setup.ps1 
-## AUTHOR: Lucca Pessoa da Silva Matos 
+## NAME: Get-Setup.ps1
+## AUTHOR: Lucca Pessoa da Silva Matos
 ## DATE: 04.04.2020
 ## VERSION: 1.1
-## EXEMPLE: 
+## EXEMPLE:
 ##     PS C:\> .\Get-Setup.ps1
 ################################################################################
 
 [CmdletBinding()]
 Param(
   [Parameter(HelpMessage="AWS EC2 GitLab Runner - Setup CLI commands.")]
-  [ValidateSet("all", "choco", "aws", "register", "unregister", "runners", "list", "update", "help")]
+  [ValidateSet("all", "choco", "aws", "register", "unregister", "runners", "list", "update", "refresh", "help")]
   [string]$Setup="all"
 )
 
@@ -82,7 +82,7 @@ Function Get-AWSCLI-Setup {
       Log("Configure AWS Profile.");
       aws configure --profile [name]
       aws s3 ls
-    } 
+    }
     catch{
       Write-Error "Error - Configure AWS Profile..."
     }
@@ -175,6 +175,11 @@ Function Get-GitLab-Runner-Register {
   }
 }#End Get-GitLab-Runner-Register
 
+function Get-Refresh-Path {
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") +
+    ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+}#End Get-Refresh-Path
+
 # ******************************************************************************
 # MAIN
 # ******************************************************************************
@@ -197,17 +202,25 @@ switch ($Setup) {
   choco {
     Test-Choco
   }
-  
+
 	aws {
     Test-AWSCLI
     if (Get-Command aws -ErrorAction SilentlyContinue){
       Log("AWSCLI is already in the system.")
       Get-AWSCLI-Setup
+    } Else {
+      Write-Error "Error - AWSCLI ins't in the System... Bye Bye :)"
+      Exit
     }
   }
-  
+
   register {
-    Get-GitLab-Runner-Register
+    If (Get-Command gitlab-runner -ErrorAction SilentlyContinue){
+      Get-GitLab-Runner-Register
+    } Else {
+      Write-Error "Error - GitLab Runner ins't in the System... Bye Bye :)"
+      Exit
+    }
   }
 
   unregister {
@@ -215,7 +228,8 @@ switch ($Setup) {
       gitlab-runner unregister --all-runners
     }
     Else {
-      Write-Error "Error - GitLab Runner ins't in the System..."
+      Write-Error "Error - GitLab Runner ins't in the System... Bye Bye :)"
+      Exit
     }
   }
 
@@ -224,26 +238,44 @@ switch ($Setup) {
       gitlab-runner list
     }
     Else {
-      Write-Error "Error - GitLab Runner ins't in the System..."
+      Write-Error "Error - GitLab Runner ins't in the System... Bye Bye :)"
+      Exit
     }
   }
-	
+
 	list {
-    Log("List all installed packages.")
-		choco list -li
+    If (Get-Command choco -ErrorAction SilentlyContinue){
+      Log("List all installed packages.")
+		  choco list -li
+    }
+    Else {
+      Write-Error "Error - Choc ins't in the System... Bye Bye :)"
+      Exit
+    }
 	}
 
 	update {
-		Log("Upgrading all packages from Chocolatey.")
-    choco upgrade all -y
+    If (Get-Command choco -ErrorAction SilentlyContinue){
+      Log("Upgrading all packages from Chocolatey.")
+      choco upgrade all -y
+    }
+    Else {
+      Write-Error "Error - Choc ins't in the System... Bye Bye :)"
+      Exit
+    }
   }
-  
+
   help {
 		Log("usage: all|aws|choco|register|unregister|runnnes|list|update|help")
 	}
-	
+
+  refresh {
+    Log("Refresh Environment Variables in PowerShell...")
+    Get-Refresh-Path
+  }
+
 	default {
 		Log("usage: all|aws|choco|register|unregister|runnnes|list|update|help")
   }
-  
+
 }

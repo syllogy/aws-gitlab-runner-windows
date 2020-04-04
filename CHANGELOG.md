@@ -2,7 +2,7 @@
 
 All important changes to this project will be added to this file! This changelog will be based on [Keep a change log](http://keepachangelog.com/)
 
-## 1.0.0 - [ 01/04/2020 ] 
+## 1.0.0 - [ 01/04/2020 ]
 
 ### Added
 
@@ -13,7 +13,7 @@ All important changes to this project will be added to this file! This changelog
 * Adding Admin flux in PowerShell execution script.
 * Validation to check if choco command and your folder exist in the system.
 
-## 1.0.1 - [ 02/04/2020 ] 
+## 1.0.1 - [ 02/04/2020 ]
 
 ### Added
 
@@ -39,7 +39,7 @@ All important changes to this project will be added to this file! This changelog
 * Create install script to put Get-Setup.ps1 inside your PC.
 * Try-Catch flow to choco and aws.
 
-## 1.0.1 - [ 04/04/2020 ] 
+## 1.0.1 - [ 04/04/2020 ]
 
 ### Added
 
@@ -49,3 +49,6 @@ All important changes to this project will be added to this file! This changelog
   * Write-Header()
   * Log()
   * Get-Install()
+* Dockerfile with PowerShell.
+* Basic Docker-Compose with .env strategy.
+* Makefile with basic commands.
